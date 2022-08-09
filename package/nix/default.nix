@@ -1,21 +1,13 @@
 { stdenv
 , lib
-, enModel
 , xdotool
 , python3
-, py-vosk
 }:
 python3.pkgs.buildPythonApplication rec {
   pname = "nerd-dictation";
   version = "20220605";
   format = "other";
   src = ./../../.;
-
-  VOSK_MODEL_PATH = "${enModel}";
-
-  propagatedBuildInputs = with python3.pkgs; [
-    py-vosk
-  ];
 
   phases = "installPhase";
 
