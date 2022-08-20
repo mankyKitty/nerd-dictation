@@ -1,8 +1,8 @@
 { srcs ? import ./nix/sources.nix
+, pkgs ? import srcs.nixpkgs {}
 , big-model ? false
 }:
 rec {
-  pkgs = import srcs.nixpkgs {};
 
   enModelSmall = pkgs.fetchzip {
     url = "https://alphacephei.com/kaldi/models/vosk-model-small-en-us-0.15.zip";
