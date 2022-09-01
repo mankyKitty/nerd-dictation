@@ -5,6 +5,7 @@ with pkgs; mkShell {
   packages = [
     (python3.withPackages (_: [ py-vosk ]))
     ydotool
+    wtype
     nerd-dict
   ];
   shellHook = ''
