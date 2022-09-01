@@ -3,6 +3,7 @@
 , big-model ? false
 }:
 rec {
+  inherit pkgs;
 
   enModelSmall = pkgs.fetchzip {
     url = "https://alphacephei.com/kaldi/models/vosk-model-small-en-us-0.15.zip";
