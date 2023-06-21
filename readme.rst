@@ -244,7 +244,7 @@ options:
                         Setting to zero is the most responsive at the cost of high CPU usage.
                         The default value is 0.1 (processing 10 times a second), which is quite responsive in practice
                         (the maximum value is clamped to 0.5)
-  --delay-exit SECONDS  The time to continue running after an exit request.
+  --delay-exit SECONDS  The time to continue running after an end request.
                         this can be useful so "push to talk" setups can be released while you finish speaking
                         (zero disables).
   --suspend-on-start    Start the process and immediately suspend.
@@ -283,8 +283,10 @@ options:
 
                         - ``XDOTOOL`` Compatible with the X server only (default).
                         - ``DOTOOL`` Compatible with all Linux distributions and Wayland.
+                        - ``DOTOOLC`` Same as DOTOOL but for use with the `dotoold` daemon.
                         - ``YDOTOOL`` Compatible with all Linux distributions and Wayland but requires some setup.
                         - ``WTYPE`` Compatible with Wayland.
+                        - ``STDOUT`` Bare stdout with Ctrl-H for backspaces.
                           For help on setting up ydotool, see ``readme-ydotool.rst`` in the nerd-dictation repository.
   --verbose VERBOSE     Verbosity level, defaults to zero (no output except for errors)
 

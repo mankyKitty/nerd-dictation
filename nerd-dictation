@@ -230,7 +230,7 @@ def simulate_typing_with_dotool(delete_prev_chars: int, text: str, cmd: str = "d
             # Python 3.6 compatibility:
             proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, universal_newlines=True)
             assert proc.stdin is not None
-            proc.stdin.write("keydelay 4\ntypedelay 12\n")
+            proc.stdin.write("keydelay 4\nkeyhold 0\ntypedelay 12\ntypehold 0\n")
             proc.stdin.flush()
             simulate_typing_with_dotool_proc = proc
         elif text == "TEARDOWN":
@@ -284,6 +284,23 @@ def simulate_typing_with_wtype(delete_prev_chars: int, text: str) -> None:
 
 
 # -----------------------------------------------------------------------------
+# Simulate Input: STDOUT
+#
+def simulate_typing_with_stout(delete_prev_chars: int, text: str) -> None:
+    cmd = "stdout"
+
+    # No setup/tear-down.
+    if delete_prev_chars == SIMULATE_INPUT_CODE_COMMAND:
+        return
+
+    if delete_prev_chars:
+        sys.stdout.write("\x08" * delete_prev_chars)
+
+    sys.stdout.write(text)
+    sys.stdout.flush()
+
+
+# -----------------------------------------------------------------------------
 # Custom Configuration
 #
 
@@ -308,7 +325,6 @@ def user_config_as_module_or_none(
     config_override: Optional[str],
     user_config_prev: Optional[ModuleType],
 ) -> Optional[ModuleType]:
-
     # Explicitly ask for no configuration.
     if config_override == "":
         return None
@@ -341,10 +357,9 @@ def user_config_as_module_or_none(
 # Note this could be extracted into it's own small library.
 
 
-def from_words_to_digits_setup_once() -> Tuple[
-    Dict[str, Tuple[int, int, str, bool]], Set[str], Set[str], Set[str], Set[str]
-]:
-
+def from_words_to_digits_setup_once() -> (
+    Tuple[Dict[str, Tuple[int, int, str, bool]], Set[str], Set[str], Set[str], Set[str]]
+):
     number_words = {}
     # A set of words that can be used to start numeric expressions.
     valid_digit_words: Set[str] = set()
@@ -457,7 +472,6 @@ def from_words_to_digits_setup_once() -> Tuple[
 # Originally based on: https://ao.gl/how-to-convert-numeric-words-into-numbers-using-python/
 # A module like class can't be instanced.
 class from_words_to_digits:
-
     (
         _number_words,
         valid_digit_words,
@@ -591,7 +605,6 @@ class from_words_to_digits:
         word_index: int,
         word_index_len: int,
     ) -> int:
-
         valid_unit_words = from_words_to_digits.valid_unit_words
         number_words = from_words_to_digits._number_words
 
@@ -651,7 +664,6 @@ class from_words_to_digits:
         word_index: int,
         word_index_len: int,
     ) -> int:
-
         valid_unit_words = from_words_to_digits.valid_unit_words
         number_words = from_words_to_digits._number_words
         i = word_index
@@ -693,7 +705,6 @@ class from_words_to_digits:
         word_index: int,
         imply_single_unit: bool = False,
     ) -> Tuple[str, str, int, bool]:
-
         word_list_len = len(word_list)
 
         # Delimit, prevent accumulating "one hundred two hundred" -> "300" for example.
@@ -719,7 +730,7 @@ class from_words_to_digits:
     def parse_numbers_in_word_list(
         word_list: List[str],
         numbers_use_separator: bool = False,
-        numbers_min_value: Optional[float] = None,
+        numbers_min_value: Optional[int] = None,
         numbers_no_suffix: bool = False,
     ) -> None:
         i = 0
@@ -736,8 +747,7 @@ class from_words_to_digits:
                         continue
 
                     word_list[i:i_next] = [
-                        ("{:,d}".format(int(number)) if (numbers_use_separator and allow_reformat) else number)
-                        + suffix
+                        ("{:,d}".format(int(number)) if (numbers_use_separator and allow_reformat) else number) + suffix
                     ]
 
                     if (i_number_prev != -1) and (i_number_prev + 1 != i):
@@ -781,8 +791,7 @@ class from_words_to_digits:
                 if i + 1 != j:
                     word_list[i:j] = ["".join(word_list[i:j])]
                     orig_word_list[i:j] = ["".join(orig_word_list[i:j])]
-
-                if numbers_min_value is not None and float(word_list[i]) < numbers_min_value:
+                if numbers_min_value is not None and int(word_list[i]) < numbers_min_value:
                     word_list[i:j] = orig_word_list[i:j]
 
                 i = j
@@ -796,7 +805,6 @@ class from_words_to_digits:
 
 
 def process_text_with_user_config(user_config: ModuleType, text: str) -> str:
-
     process_fn_name = "nerd_dictation_process"
     process_fn = getattr(user_config, process_fn_name)
     if process_fn is None:
@@ -822,7 +830,7 @@ def process_text(
     full_sentence: bool = False,
     numbers_as_digits: bool = False,
     numbers_use_separator: bool = False,
-    numbers_min_value: Optional[float] = None,
+    numbers_min_value: Optional[int] = None,
     numbers_no_suffix: bool = False,
 ) -> str:
     """
@@ -939,8 +947,10 @@ def text_from_vosk_pipe(
     def recording_proc_start() -> "Tuple[subprocess.Popen[bytes], IO[bytes]]":
         return recording_proc_with_non_blocking_stdout(input_method, sample_rate, pulse_device_name)
 
+    has_ps = False
     if not suspend_on_start:
         ps, stdout = recording_proc_start()
+        has_ps = True
 
     # `mypy` doesn't know about VOSK.
     import vosk  # type: ignore
@@ -1073,8 +1083,9 @@ def text_from_vosk_pipe(
                 handle_fn_wrapper(text, True)
         return json_text, json_text_partial_prev
 
-    # Support setting up input simulation state.
-    handle_fn(SIMULATE_INPUT_CODE_COMMAND, "SETUP")
+    if not suspend_on_start:
+        # Support setting up input simulation state.
+        handle_fn(SIMULATE_INPUT_CODE_COMMAND, "SETUP")
 
     # Use code to delay exiting, allowing reading the recording buffer to catch-up.
     code = 0
@@ -1087,8 +1098,7 @@ def text_from_vosk_pipe(
     from types import FrameType
 
     def do_suspend_pause() -> None:
-        nonlocal ps
-        nonlocal stdout
+        nonlocal has_ps, ps, stdout
         rec_handle_fn_wrapper_from_final_result()
 
         # Don't include any of the current analysis when resuming.
@@ -1102,21 +1112,28 @@ def text_from_vosk_pipe(
             sys.stderr.write("Recording suspended.\n")
 
         # Close the recording process.
-        stdout.close()
-        os.kill(ps.pid, signal.SIGINT)
+        if has_ps:
+            # Support setting up input simulation state.
+            handle_fn(SIMULATE_INPUT_CODE_COMMAND, "TEARDOWN")
+
+            stdout.close()
+            os.kill(ps.pid, signal.SIGINT)
+            del stdout, ps
+            has_ps = False
 
     # Warning: do not call do_suspend_resume() from a signal context because it
     # can cause reentrant runtime errors and other related bugs.
     def do_suspend_resume() -> None:
-        nonlocal ps
-        nonlocal stdout
+        nonlocal has_ps, ps, stdout
 
         # Resume reading from the recording process.
         nonlocal verbose
         if verbose >= 1:
             sys.stderr.write("Recording.\n")
 
+        handle_fn(SIMULATE_INPUT_CODE_COMMAND, "SETUP")
         ps, stdout = recording_proc_start()
+        has_ps = True
 
     def handle_sig_suspend_from_usr1(_signum: int, _frame: Optional[FrameType]) -> None:
         nonlocal suspend
@@ -1217,11 +1234,14 @@ def text_from_vosk_pipe(
                         code = 1  # The time was exceeded, exit!
 
     # Close the recording process.
-    if not suspend:
+    if has_ps:
+        # stdout.close(), no need, this is exiting.
         os.kill(ps.pid, signal.SIGINT)
+        del ps, stdout
+        has_ps = False
 
-    # Support setting up input simulation state.
-    handle_fn(SIMULATE_INPUT_CODE_COMMAND, "TEARDOWN")
+        # Support setting up input simulation state.
+        handle_fn(SIMULATE_INPUT_CODE_COMMAND, "TEARDOWN")
 
     if code == -1:
         sys.stderr.write("Text input canceled!\n")
@@ -1249,7 +1269,7 @@ def main_begin(
     full_sentence: bool = False,
     numbers_as_digits: bool = False,
     numbers_use_separator: bool = False,
-    numbers_min_value: Optional[float] = None,
+    numbers_min_value: Optional[int] = None,
     numbers_no_suffix: bool = False,
     timeout: float = 0.0,
     idle_time: float = 0.0,
@@ -1318,7 +1338,6 @@ def main_begin(
         if not os.path.exists(path_to_cookie):
             return -1  # Cancel.
         if file_mtime_or_none(path_to_cookie) != cookie_timestamp:
-
             # Only delay exit if some text has been handled,
             # this prevents accidental tapping of push to talk from running.
             if handled_any:
@@ -1384,7 +1403,6 @@ def main_begin(
     # Handled the resulting text
     #
     if output == "SIMULATE_INPUT":
-
         if simulate_input_tool == "XDOTOOL":
             handle_fn = simulate_typing_with_xdotool
         elif simulate_input_tool == "YDOTOOL":
@@ -1395,6 +1413,8 @@ def main_begin(
             handle_fn = simulate_typing_with_dotoolc
         elif simulate_input_tool == "WTYPE":
             handle_fn = simulate_typing_with_wtype
+        elif simulate_input_tool == "STDOUT":
+            handle_fn = simulate_typing_with_stout
         else:
             raise Exception("Internal error, unknown input tool: {!r}".format(simulate_input_tool))
 
@@ -1641,7 +1661,7 @@ def argparse_create_begin(subparsers: "argparse._SubParsersAction[argparse.Argum
         type=float,
         metavar="SECONDS",
         help=(
-            "The time to continue running after an exit request.\n"
+            "The time to continue running after an end request.\n"
             'this can be useful so "push to talk" setups can be released while you finish speaking\n'
             "(zero disables)."
         ),
@@ -1710,7 +1730,7 @@ def argparse_create_begin(subparsers: "argparse._SubParsersAction[argparse.Argum
         "--numbers-min-value",
         dest="numbers_min_value",
         default=None,
-        type=float,
+        type=int,
         help=(
             "Minimum value for numbers to convert from whole words to digits.\n"
             'This provides for more formal writing and prevents terms like "no one"\n'
@@ -1769,7 +1789,7 @@ def argparse_create_begin(subparsers: "argparse._SubParsersAction[argparse.Argum
         "--simulate-input-tool",
         dest="simulate_input_tool",
         default="XDOTOOL",
-        choices=("XDOTOOL", "DOTOOL", "DOTOOLC", "YDOTOOL", "WTYPE"),
+        choices=("XDOTOOL", "DOTOOL", "DOTOOLC", "YDOTOOL", "WTYPE", "STDOUT"),
         metavar="SIMULATE_INPUT_TOOL",
         help=(
             "Program used to simulate keystrokes (default).\n"
@@ -1779,6 +1799,7 @@ def argparse_create_begin(subparsers: "argparse._SubParsersAction[argparse.Argum
             "- ``DOTOOLC`` Same as DOTOOL but for use with the `dotoold` daemon.\n"
             "- ``YDOTOOL`` Compatible with all Linux distributions and Wayland but requires some setup.\n"
             "- ``WTYPE`` Compatible with Wayland.\n"
+            "- ``STDOUT`` Bare stdout with Ctrl-H for backspaces.\n"
             "  For help on setting up ydotool, see ``readme-ydotool.rst`` in the nerd-dictation repository.\n"
         ),
         required=False,
